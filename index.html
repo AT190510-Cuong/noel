@@ -226,6 +226,9 @@
         let groupGold, groupRed, groupGift; 
         let photoMeshes = [];
         let titleMesh, starMesh;
+        let snowSystem;
+        const SNOW_COUNT = 1000;
+        const snowClock = new THREE.Clock();
 
         let state = 'TREE';
         let selectedIndex = 0;
@@ -260,6 +263,7 @@
 
             createPhotos();
             createDecorations();
+            createSnow();
             animate();
         }
 
@@ -424,6 +428,81 @@
             scene.add(starMesh);
         }
 
+        // ==========================================
+        // 3a. SNOW SYSTEM (tuyết rơi)
+        // ==========================================
+        function createSnow() {
+            const geometry = new THREE.BufferGeometry();
+            const vertices = [];
+            const velocities = [];
+
+            // Texture tròn trắng cho bông tuyết
+            const canvas = document.createElement('canvas');
+            canvas.width = 32; canvas.height = 32;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.arc(16, 16, 16, 0, Math.PI * 2);
+            ctx.fill();
+            const snowTexture = new THREE.CanvasTexture(canvas);
+
+            for (let i = 0; i < SNOW_COUNT; i++) {
+                const x = THREE.MathUtils.randFloatSpread(120);
+                const y = THREE.MathUtils.randFloatSpread(80);
+                const z = THREE.MathUtils.randFloatSpread(80);
+                vertices.push(x, y, z);
+
+                // (fallSpeed, swaySpeed)
+                velocities.push(
+                    Math.random() * 0.25 + 0.1,
+                    Math.random() * 0.08
+                );
+            }
+
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geometry.setAttribute('velocity', new THREE.Float32BufferAttribute(velocities, 2));
+
+            const material = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: 0.6,
+                map: snowTexture,
+                transparent: true,
+                opacity: 0.9,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+
+            snowSystem = new THREE.Points(geometry, material);
+            scene.add(snowSystem);
+        }
+
+        function updateSnow() {
+            if (!snowSystem) return;
+
+            const positions = snowSystem.geometry.attributes.position.array;
+            const velocities = snowSystem.geometry.attributes.velocity.array;
+            const t = snowClock.getElapsedTime();
+
+            for (let i = 0; i < SNOW_COUNT; i++) {
+                const fallSpeed = velocities[i * 2];
+                const swaySpeed = velocities[i * 2 + 1];
+
+                // Y rơi xuống
+                positions[i * 3 + 1] -= fallSpeed;
+                // X lắc nhẹ theo thời gian
+                positions[i * 3] += Math.sin(t * 2 + i) * swaySpeed * 0.12;
+
+                // Nếu rơi quá thấp thì reset lại phía trên
+                if (positions[i * 3 + 1] < -50) {
+                    positions[i * 3 + 1] = 50;
+                    positions[i * 3] = THREE.MathUtils.randFloatSpread(120);
+                    positions[i * 3 + 2] = THREE.MathUtils.randFloatSpread(80);
+                }
+            }
+
+            snowSystem.geometry.attributes.position.needsUpdate = true;
+        }
+
         function updateParticleGroup(group, targetState, speed, handRotY, time, isBlinking) {
             const positions = group.geometry.attributes.position.array;
             let targetKey = 'tree';
@@ -480,6 +559,9 @@
             updateParticleGroup(groupGold, state, speed, handRotY, time, false);
             updateParticleGroup(groupRed, state, speed, handRotY, time, false); 
             updateParticleGroup(groupGift, state, speed, handRotY, time, false);
+
+            // Tuyết rơi nền
+            updateSnow();
 
             // Giai đoạn xoay ảnh trước khi phóng to từng tấm
             if (spinForPhoto) {
