@@ -135,7 +135,9 @@
         // ==========================================
         const MUSIC_URL = "./Perfect.mp3";
         let bgMusic = new Audio(MUSIC_URL);
-        bgMusic.loop = true; bgMusic.volume = 1.0;
+        // Phát một lần, hết bài thì quay lại cây thông + nút Start
+        bgMusic.loop = false;
+        bgMusic.volume = 1.0;
 
         // Web Audio để phân tích nhạc
         let audioCtx = null;
@@ -690,6 +692,23 @@
             autoTimeouts.push(id);
         }
 
+        // Đưa hệ thống về trạng thái ban đầu: cây thông đứng yên + hiện nút Start
+        function resetToInitial() {
+            clearAutoTimers();
+            state = 'TREE';
+            spinForPhoto = false;
+            spinAccum = 0;
+            selectedIndex = 0;
+
+            if (bgMusic) {
+                bgMusic.pause();
+                bgMusic.currentTime = 0;
+            }
+
+            const btn = document.getElementById('btnStart');
+            if (btn) btn.style.display = 'inline-block';
+        }
+
         function startSystem() {
             document.getElementById('btnStart').style.display = 'none';
 
@@ -703,6 +722,9 @@
                 srcNode.connect(analyser);
                 analyser.connect(audioCtx.destination);
             }
+
+            // Khi bài hát kết thúc, quay lại trạng thái ban đầu
+            bgMusic.onended = resetToInitial;
 
             bgMusic.play().catch(e => console.log(e));
 
